@@ -1,38 +1,750 @@
-.App {
-  text-align: center;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+:root {
+  /* Attractive Blood Red Horror Palette */
+  --blood-primary: #7d1c1c;
+  --blood-glow: #be3c3c;
+  --blood-accent: #e05c5c;
+  --blood-highlight: #f69d9d;
+  --blood-shadow: rgba(189, 60, 60, 0.6);
+  --void-black: #000;
+  --deep-void: #100010;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+html, body {
+  height: 100%;
 }
 
-.App-header {
-  background-color: #282c34;
+body {
+  background: var(--void-black);
+  color: #fff;
+  font-family: "Courier New", monospace;
+  overflow-x: hidden;
+}
+
+/* ============ HOME/LOGIN BACKGROUND ============ */
+.horror-container {
   min-height: 100vh;
+  position: relative;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 20%, var(--blood-primary) 0%, var(--deep-void) 50%),
+    radial-gradient(ellipse at 10% 80%, rgba(189,60,60,0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 70%, rgba(230,92,92,0.08) 0%, transparent 50%);
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  overflow: hidden;
 }
 
-.App-link {
-  color: #61dafb;
+/* LEFT SIDE ANIMATIONS */
+.horror-container::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 40%;
+  height: 100%;
+  background:
+    linear-gradient(90deg, transparent 60%, var(--blood-glow) 70%, transparent 80%),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 20px,
+      var(--blood-highlight) 20px,
+      var(--blood-highlight) 22px,
+      transparent 22px,
+      transparent 50px
+    );
+  animation: left-vein-crawl 6s linear infinite, left-beam-scan 12s ease-in-out infinite reverse;
+  z-index: 0;
+  opacity: 0.55;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
+@keyframes left-vein-crawl {
+  0% { transform: translateX(-100%) skewY(-5deg); opacity: 0.25; }
+  50% { opacity: 0.75; }
+  100% { transform: translateX(20%) skewY(2deg); opacity: 0.2; }
+}
+
+@keyframes left-beam-scan {
+  0%, 100% { top: 0; height: 6%; }
+  33% { top: 30%; height: 14%; }
+  66% { top: 60%; height: 9%; }
+}
+
+/* RIGHT SIDE ANIMATIONS */
+.horror-container::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 45%;
+  height: 100%;
+  background:
+    linear-gradient(-90deg, transparent 60%, var(--blood-accent) 75%, var(--blood-glow) 80%, transparent 90%),
+    radial-gradient(circle at 20% 30%, var(--blood-highlight) 0%, transparent 40%),
+    radial-gradient(circle at 50% 70%, var(--blood-glow) 0%, transparent 50%);
+  animation: right-particle-rise 8s ease-in-out infinite, right-pulse-veins 4s ease-in-out infinite;
+  z-index: 0;
+  opacity: 0.55;
+}
+
+@keyframes right-particle-rise {
+  0% { transform: translateY(100%) scale(0.5); opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 0.7; }
+  100% { transform: translateY(-20%) scale(1.2); opacity: 0; }
+}
+
+@keyframes right-pulse-veins {
+  0%, 100% {
+    box-shadow: inset 0 0 50px var(--blood-shadow), 0 0 100px rgba(230,92,92,0.3);
   }
-  to {
-    transform: rotate(360deg);
+  50% {
+    box-shadow: inset 0 0 100px var(--blood-glow), 0 0 200px var(--blood-accent);
+    transform: scaleX(1.03);
   }
+}
+
+/* EMBERS */
+.ember-field {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.ember {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: radial-gradient(circle, var(--blood-highlight) 0%, var(--blood-glow) 70%, transparent);
+  border-radius: 50%;
+  animation: ember-float 15s linear infinite;
+}
+
+.ember:nth-child(1) { left: 10%; animation-delay: 0s; }
+.ember:nth-child(2) { left: 25%; animation-delay: 3s; }
+.ember:nth-child(3) { left: 70%; animation-delay: 7s; }
+.ember:nth-child(4) { left: 85%; animation-delay: 11s; }
+.ember:nth-child(5) { left: 45%; animation-delay: 14s; }
+
+@keyframes ember-float {
+  0% { transform: translateY(110vh) scale(0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 0.4; }
+  100% { transform: translateY(-10vh) scale(1.5); opacity: 0; }
+}
+
+/* MIST */
+.mist-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.mist-layer-1 {
+  position: absolute;
+  width: 300%;
+  height: 300%;
+  background: linear-gradient(90deg, transparent 30%, var(--blood-shadow) 50%, transparent 70%);
+  animation: mist-drift-1 25s linear infinite;
+  filter: blur(3px);
+  opacity: 0.6;
+}
+
+@keyframes mist-drift-1 {
+  0% { transform: translateX(-33%) translateY(0); }
+  100% { transform: translateX(33%) translateY(-10%); }
+}
+
+.mist-layer-2 {
+  position: absolute;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(230,92,92,0.06) 0%, transparent 50%);
+  animation: mist-swirl-2 35s ease-in-out infinite reverse;
+  filter: blur(5px);
+  top: 20%;
+  left: -50%;
+  opacity: 0.65;
+}
+
+@keyframes mist-swirl-2 {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.1); }
+}
+
+.mist-layer-3 {
+  position: absolute;
+  width: 400%;
+  height: 100%;
+  border: 1px solid rgba(230,92,92,0.05);
+  animation: mist-flow-3 45s linear infinite;
+  filter: blur(8px);
+  opacity: 0.5;
+}
+
+@keyframes mist-flow-3 {
+  0% { transform: translateX(-25%) skewX(0deg); }
+  100% { transform: translateX(25%) skewX(2deg); }
+}
+
+/* GHOSTS */
+.floating-ghosts {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.ghost {
+  position: absolute;
+  width: 60px;
+  height: 80px;
+  background: linear-gradient(180deg, rgba(246,157,157,0.15) 0%, var(--blood-shadow) 100%);
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  filter: blur(1px);
+  opacity: 0.35;
+}
+
+.ghost:before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 20px;
+  background: inherit;
+  border-radius: 50%;
+  box-shadow: 10px -10px 0 rgba(230,92,92,0.2), -10px -10px 0 rgba(230,92,92,0.2);
+}
+
+.ghost-1 { top: 20%; left: 10%; animation: ghost-float-1 8s ease-in-out infinite; }
+.ghost-2 { top: 60%; right: 15%; animation: ghost-float-2 10s ease-in-out infinite 2s; }
+.ghost-3 { top: 10%; right: 30%; animation: ghost-sway-3 12s ease-in-out infinite 4s; }
+.ghost-4 { bottom: 20%; left: 20%; animation: ghost-float-4 9s ease-in-out infinite 1s; }
+
+@keyframes ghost-float-1 {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-30px) rotate(2deg); }
+}
+@keyframes ghost-float-2 {
+  0%, 100% { transform: translateY(0) scale(1); }
+  33% { transform: translateY(-20px) scale(1.05); }
+  66% { transform: translateY(-40px) scale(0.95); }
+}
+@keyframes ghost-sway-3 {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  50% { transform: translateX(40px) rotate(5deg); }
+}
+@keyframes ghost-float-4 {
+  0%, 100% { transform: translateY(0) translateX(0); opacity: 0.35; }
+  25% { transform: translateY(-25px) translateX(-10px); opacity: 0.55; }
+  75% { transform: translateY(-35px) translateX(15px); opacity: 0.25; }
+}
+
+/* CRACKS */
+.void-cracks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+  background-image:
+    radial-gradient(2px 2px at 20px 30px, var(--blood-glow), transparent),
+    radial-gradient(2px 2px at 40px 70px, rgba(230,92,92,0.8), transparent),
+    radial-gradient(1px 1px at 90px 40px, var(--blood-primary), transparent),
+    radial-gradient(1px 1px at 130px 80px, rgba(246,157,157,0.6), transparent);
+  background-repeat: repeat;
+  background-size: 200px 100px;
+  animation: crack-spread 20s linear infinite;
+  opacity: 0.25;
+}
+
+@keyframes crack-spread {
+  0% { transform: scale(1) skew(0deg); filter: hue-rotate(0deg); }
+  50% { transform: scale(1.05) skew(1deg); filter: hue-rotate(30deg); }
+  100% { transform: scale(1) skew(0deg); filter: hue-rotate(0deg); }
+}
+
+/* ============ LOGIN / ROOM CARD (normal size) ============ */
+.center-portal {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+  padding: 60px 40px;
+  max-width: 560px;
+  width: min(92vw, 560px);
+  background: rgba(0, 0, 0, 0.85);
+  border: 2px solid var(--blood-glow);
+  border-radius: 25px;
+  box-shadow: 0 0 40px var(--blood-shadow), inset 0 0 50px rgba(0, 0, 0, 0.95);
+  animation: portal-throb 3s ease-in-out infinite;
+}
+
+@keyframes portal-throb {
+  0%, 100% { box-shadow: 0 0 40px var(--blood-shadow), inset 0 0 50px rgba(0,0,0,0.95); }
+  50% { box-shadow: 0 0 80px var(--blood-accent), inset 0 0 80px rgba(125,28,28,0.30); transform: scale(1.02); }
+}
+
+.horror-title {
+  font-size: clamp(2rem, 4vw, 3rem);
+  color: var(--blood-accent);
+  text-shadow: 0 0 15px var(--blood-glow), 3px 3px 0 var(--void-black), -3px -3px 0 var(--void-black);
+  margin-bottom: 18px;
+  animation: title-glitch 3s infinite;
+}
+
+@keyframes title-glitch {
+  0%, 90%, 100% { transform: translate(0); }
+  10% { transform: translate(-2px, 2px); }
+  20% { transform: translate(2px, -1px); }
+  30%, 40%, 50% { transform: translate(-1px, 1px); }
+  60% { transform: translate(-3px, 2px); }
+  70%, 80% { transform: translate(2px, 1px); }
+}
+
+.abyss-subtitle {
+  color: rgb(rgb(242, 12, 12));
+  font-size: 1.2rem;
+  margin-bottom: 22px;
+  opacity: 0.9;
+}
+
+.portal-input-group {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+  margin: 18px 0 10px;
+  flex-wrap: wrap;
+}
+
+.abyss-input {
+  background: rgba(0,0,0,0.9);
+  border: 2px solid var(--blood-primary);
+  color: #fff;
+  padding: 15px 18px;
+  font-size: 1.05rem;
+  border-radius: 12px;
+  width: min(92vw, 360px);
+  transition: all 0.25s ease;
+  box-shadow: 0 0 20px var(--blood-shadow);
+}
+
+.abyss-input:focus {
+  outline: none;
+  border-color: var(--blood-accent);
+  box-shadow: 0 0 35px var(--blood-glow), inset 0 0 25px rgba(125,28,28,0.25);
+  transform: scale(1.01);
+}
+
+.summon-btn,
+.enter-btn,
+.create-portal-btn {
+  background: linear-gradient(145deg, var(--blood-primary), var(--blood-glow));
+  color: #fff;
+  border: none;
+  padding: 14px 22px;
+  font-size: 1rem;
+  border-radius: 12px;
+  cursor: pointer;
+  margin: 10px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 8px 25px var(--blood-shadow);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.summon-btn:hover,
+.enter-btn:hover,
+.create-portal-btn:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 15px 40px rgba(230,92,92,0.7);
+}
+
+.error-glow {
+  color: var(--blood-accent);
+  text-shadow: 0 0 15px var(--blood-glow);
+  margin: 10px 0;
+}
+
+.blood-divider {
+  height: 4px;
+  background: linear-gradient(90deg, transparent, var(--blood-accent), var(--blood-glow), var(--blood-accent), transparent);
+  margin: 26px 0 18px;
+  border-radius: 2px;
+  opacity: 0.9;
+}
+
+.portal-code {
+  color: var(--blood-primary);
+  font-size: 1.05rem;
+  margin-top: 10px;
+  text-shadow: 0 0 10px var(--blood-glow);
+}
+
+.portal-code span {
+  color: var(--blood-highlight);
+  font-weight: 700;
+}
+
+/* ============ CHAT (WhatsApp-like behavior) ============ */
+.horror-chat-container {
+  height: 100vh;
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(ellipse at 15% 20%, rgba(125,28,28,0.35) 0%, var(--deep-void) 55%),
+    radial-gradient(ellipse at 85% 80%, rgba(190,60,60,0.15) 0%, var(--deep-void) 60%);
+  overflow: hidden;
+}
+
+/* Sticky header */
+.chat-header {
+  position: sticky;
+  top: 0;
+  background: rgba(0,0,0,0.92);
+  border-bottom: 1px solid rgba(230,92,92,0.25);
+  padding: 12px 16px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.chamber-title {
+  font-size: 1.15rem;
+  color: var(--blood-accent);
+  text-shadow: 0 0 12px rgba(190,60,60,0.7);
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.blood-pulse {
+  width: 10px;
+  height: 10px;
+  background: var(--blood-glow);
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(230,92,92,0.8);
+  animation: pulse 1.4s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(230,92,92,0.55); }
+  70% { box-shadow: 0 0 0 12px rgba(230,92,92,0); }
+  100% { box-shadow: 0 0 0 0 rgba(230,92,92,0); }
+}
+
+/* Messages area grows and scrolls */
+.messages-abyss {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Each message row is a flex container so alignment works */
+.message-container {
+  display: flex;
+  width: 100%;
+}
+
+/* Put bubbles left/right like WhatsApp */
+.message-container.other-message {
+  justify-content: flex-start;
+}
+.message-container.own-message {
+  justify-content: flex-end;
+}
+
+/* Bubble */
+.blood-message {
+  max-width: min(78%, 540px);
+  padding: 10px 12px;
+  border-radius: 16px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Received (left) */
+.message-container.other-message .blood-message {
+  background: rgba(125,28,28,0.25);
+  border: 1px solid rgba(190,60,60,0.25);
+  border-bottom-left-radius: 6px;
+}
+
+/* Sent (right) */
+.message-container.own-message .blood-message {
+  background: rgba(190,60,60,0.30);
+  border: 1px solid rgba(246,157,157,0.18);
+  border-bottom-right-radius: 6px;
+}
+
+.blood-message p {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.35;
+  color: #fff;
+}
+
+/* Input pinned to bottom */
+.void-input {
+  flex: 0 0 auto;
+  padding: 10px 12px;
+  background: rgba(0,0,0,0.95);
+  border-top: 1px solid rgba(230,92,92,0.22);
+}
+
+.input-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(18,18,18,0.95);
+  border: 1px solid rgba(230,92,92,0.25);
+  border-radius: 26px;
+  padding: 10px 12px;
+}
+
+.void-input-field {
+  flex: 1 1 auto;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #fff;
+  font-size: 1rem;
+  padding: 8px 6px;
+  min-width: 0;
+}
+
+.void-input-field::placeholder {
+  color: rgba(255,255,255,0.55);
+}
+
+/* Send button */
+.summon-btn-small {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: var(--blood-accent);
+  color: #fff;
+  font-size: 18px;
+  display: grid;
+  place-items: center;
+  transition: transform 0.15s ease, background 0.15s ease;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.35);
+}
+
+.summon-btn-small:hover {
+  background: var(--blood-highlight);
+  transform: scale(1.06);
+}
+
+/* Scrollbar (small) */
+.messages-abyss::-webkit-scrollbar { width: 6px; }
+.messages-abyss::-webkit-scrollbar-track { background: transparent; }
+.messages-abyss::-webkit-scrollbar-thumb {
+  background: rgba(125,28,28,0.7);
+  border-radius: 4px;
+}
+.messages-abyss::-webkit-scrollbar-thumb:hover {
+  background: rgba(190,60,60,0.85);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .center-portal {
+    padding: 44px 22px;
+    border-radius: 20px;
+  }
+  .blood-message {
+    max-width: 88%;
+  }
+}
+.msg-sender{
+  font-size: 0.75rem;
+  line-height: 1;
+  margin-bottom: 6px;
+  opacity: 0.92;
+  letter-spacing: 0.3px;
+}
+
+.msg-sender.me{
+  text-align: right;
+  color: rgba(246,157,157,0.92);
+}
+
+.msg-sender.them{
+  text-align: left;
+  color: rgba(230,92,92,0.95);
+}
+
+/* ================= OUTSIDE CHAT GUTTER ANIMATIONS =================
+   These are OUTSIDE the centered chat container (not inside messages).
+   Paste at the VERY END of App.css
+================================================================== */
+
+/* Ensure chat sits above gutter effects */
+.horror-chat-container,
+.horror-chat-container * {
+  position: relative;
+  z-index: 10;
+}
+
+/* Two fixed animated gutters on the viewport sides */
+body::before,
+body::after{
+  content:"";
+  position: fixed;
+  top: 0;
+  width: clamp(60px, calc((100vw - 900px) / 2), 360px);
+  height: 100vh;
+  pointer-events: none;
+  z-index: 1; /* behind chat */
+  opacity: 0.85;
+}
+
+/* LEFT GUTTER: moving rune-lines + drifting glow */
+body::before{
+  left: 0;
+
+  background:
+    /* drifting glow blobs */
+    radial-gradient(circle at 30% 20%, rgba(246,157,157,0.16) 0%, rgba(0,0,0,0) 55%),
+    radial-gradient(circle at 40% 70%, rgba(190,60,60,0.14) 0%, rgba(0,0,0,0) 60%),
+
+    /* rune scratches */
+    repeating-linear-gradient(
+      165deg,
+      rgba(0,0,0,0) 0px,
+      rgba(0,0,0,0) 18px,
+      rgba(230,92,92,0.10) 18px,
+      rgba(230,92,92,0.10) 20px,
+      rgba(0,0,0,0) 20px,
+      rgba(0,0,0,0) 55px
+    ),
+
+    /* edge fade to black */
+    linear-gradient(90deg, rgba(0,0,0,0.98) 0%, rgba(0,0,0,0.65) 55%, rgba(0,0,0,0) 100%);
+
+  background-size: 100% 100%, 100% 100%, 220px 220px, 100% 100%;
+  animation: gutterLeftDrift 10s ease-in-out infinite, gutterLeftRunes 6s linear infinite;
+  filter: drop-shadow(0 0 18px rgba(190,60,60,0.22));
+}
+
+@keyframes gutterLeftDrift{
+  0%   { background-position: 0% 0%, 0% 0%, 0 0, 0 0; opacity: 0.55; }
+  50%  { background-position: 20% 30%, -10% 60%, 0 0, 0 0; opacity: 0.95; }
+  100% { background-position: 0% 0%, 0% 0%, 0 0, 0 0; opacity: 0.55; }
+}
+
+@keyframes gutterLeftRunes{
+  0%   { background-position: 0% 0%, 0% 0%, 0px 0px, 0 0; }
+  100% { background-position: 0% 0%, 0% 0%, 220px -220px, 0 0; }
+}
+
+/* RIGHT GUTTER: ember columns + scanning red beam */
+body::after{
+  right: 0;
+
+  background:
+    /* scan beam */
+    linear-gradient(180deg,
+      rgba(0,0,0,0) 0%,
+      rgba(190,60,60,0.00) 40%,
+      rgba(246,157,157,0.18) 50%,
+      rgba(190,60,60,0.00) 60%,
+      rgba(0,0,0,0) 100%
+    ),
+
+    /* ember dots column */
+    radial-gradient(circle at 30% 110%, rgba(246,157,157,0.22) 0%, rgba(0,0,0,0) 45%),
+    radial-gradient(circle at 55% 120%, rgba(230,92,92,0.18) 0%, rgba(0,0,0,0) 50%),
+    radial-gradient(circle at 70% 130%, rgba(190,60,60,0.16) 0%, rgba(0,0,0,0) 55%),
+
+    /* vertical streaks */
+    repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,0) 0px,
+      rgba(0,0,0,0) 26px,
+      rgba(246,157,157,0.09) 26px,
+      rgba(246,157,157,0.09) 28px,
+      rgba(0,0,0,0) 28px,
+      rgba(0,0,0,0) 70px
+    ),
+
+    /* edge fade */
+    linear-gradient(-90deg, rgba(0,0,0,0.98) 0%, rgba(0,0,0,0.65) 55%, rgba(0,0,0,0) 100%);
+
+  background-size: 100% 100%, 100% 100%, 100% 100%, 180px 260px, 100% 100%;
+  animation: gutterRightEmbers 7.8s linear infinite, gutterRightScan 3.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 22px rgba(230,92,92,0.22));
+}
+
+@keyframes gutterRightEmbers{
+  0%   { background-position: 0 0, 30% 120%, 55% 140%, 70% 160%, 0 0, 0 0; }
+  100% { background-position: 0 0, 30% -20%, 55% -40%, 70% -60%, 180px -260px, 0 0; }
+}
+
+@keyframes gutterRightScan{
+  0%,100% { opacity: 0.55; transform: translateY(0); }
+  50%     { opacity: 0.95; transform: translateY(-10px); }
+}
+
+/* If screen is small (no outside space), hide gutters */
+@media (max-width: 940px){
+  body::before,
+  body::after{
+    width: 0;
+    opacity: 0;
+  }
+}
+.chat-media{
+  max-width: 260px;
+  width: 100%;
+  border-radius: 12px;
+  display: block;
+}
+
+.chat-audio{
+  width: 260px;
+  max-width: 100%;
+}
+
+.chat-file{
+  color: var(--blood-highlight);
+  text-decoration: underline;
+}
+
+.msg-sender{
+  font-size: 0.75rem;
+  line-height: 1;
+  margin-bottom: 6px;
+  opacity: 0.92;
+}
+
+.msg-sender.me{
+  text-align: right;
+  color: rgba(246,157,157,0.92);
+}
+
+.msg-sender.them{
+  text-align: left;
+  color: rgba(230,92,92,0.95);
 }
