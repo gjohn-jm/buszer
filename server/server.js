@@ -16,6 +16,9 @@ const io = new Server(server, {
 // roomId → Map<socketId, username>
 const roomUsers = new Map();
 
+// roomId → { msgId → { emoji → Set<username> } }
+const roomReactions = new Map();
+
 function getRoomNames(roomId) {
   const room = roomUsers.get(roomId);
   if (!room) return [];
@@ -29,24 +32,23 @@ io.on("connection", (socket) => {
   socket.on("join_room", (roomId, callback) => {
     socket.join(roomId);
     socket.data.roomId = roomId;
-
     if (!roomUsers.has(roomId)) roomUsers.set(roomId, new Map());
-
     if (typeof callback === "function") callback();
+  });
+
+  // ── CHECK ROOM ─────────────────────────────────────────────
+  socket.on("check_room", (roomId, callback) => {
+    const exists = roomUsers.has(roomId) && roomUsers.get(roomId).size > 0;
+    if (typeof callback === "function") callback(exists);
   });
 
   // ── SET USERNAME ───────────────────────────────────────────
   socket.on("set_username", ({ roomId, username }) => {
     socket.data.username = username;
     socket.data.roomId   = roomId;
-
     if (!roomUsers.has(roomId)) roomUsers.set(roomId, new Map());
     roomUsers.get(roomId).set(socket.id, username);
-
-    // tell everyone in room this user joined
     socket.to(roomId).emit("user_joined", { username });
-
-    // broadcast updated user list to ALL in room
     io.to(roomId).emit("room_users", { names: getRoomNames(roomId) });
   });
 
@@ -54,10 +56,11 @@ io.on("connection", (socket) => {
   socket.on("send_message", (data) => {
     const roomId = socket.data.roomId;
     if (!roomId) return;
-    io.to(roomId).emit("receive_message", data);
+    // Broadcast to others only (sender already adds locally)
+    socket.to(roomId).emit("receive_message", data);
   });
 
-  // ── TYPING ────────────────────────────────────────────────
+  // ── TYPING ─────────────────────────────────────────────────
   socket.on("typing_start", () => {
     const { roomId, username } = socket.data;
     if (!roomId || !username) return;
@@ -70,7 +73,7 @@ io.on("connection", (socket) => {
     socket.to(roomId).emit("user_stop_typing", { username });
   });
 
-  // ── RECORDING ─────────────────────────────────────────────
+  // ── RECORDING ──────────────────────────────────────────────
   socket.on("recording_start", () => {
     const { roomId, username } = socket.data;
     if (!roomId || !username) return;
@@ -83,7 +86,7 @@ io.on("connection", (socket) => {
     socket.to(roomId).emit("user_stop_recording", { username });
   });
 
-  // ── UPLOADING ─────────────────────────────────────────────
+  // ── UPLOADING ──────────────────────────────────────────────
   socket.on("uploading_start", () => {
     const { roomId, username } = socket.data;
     if (!roomId || !username) return;
@@ -96,29 +99,67 @@ io.on("connection", (socket) => {
     socket.to(roomId).emit("user_stop_uploading", { username });
   });
 
-  // ── REACTIONS ─────────────────────────────────────────────
+  // ── REACTIONS (toggle-aware, multi-user) ───────────────────
   socket.on("add_reaction", ({ msgId, emoji, username }) => {
     const roomId = socket.data.roomId;
-    if (!roomId) return;
-    io.to(roomId).emit("reaction_update", { msgId, reactions: { [emoji]: [username] } });
+    if (!roomId || !msgId || !emoji || !username) return;
+
+    if (!roomReactions.has(roomId)) roomReactions.set(roomId, {});
+    const roomData = roomReactions.get(roomId);
+    if (!roomData[msgId]) roomData[msgId] = {};
+    if (!roomData[msgId][emoji]) roomData[msgId][emoji] = new Set();
+
+    const users = roomData[msgId][emoji];
+    if (users.has(username)) users.delete(username);
+    else users.add(username);
+
+    // Serialize Sets → Arrays for socket emit
+    const serialized = {};
+    Object.entries(roomData[msgId]).forEach(([em, usersSet]) => {
+      const arr = [...usersSet];
+      if (arr.length > 0) serialized[em] = arr;
+    });
+
+    io.to(roomId).emit("reaction_update", { msgId, reactions: serialized });
   });
 
-  // ── DISCONNECT ────────────────────────────────────────────
-  socket.on("disconnect", () => {
-    const { roomId, username } = socket.data;
+  // ── LEAVE ROOM ─────────────────────────────────────────────
+  socket.on("leave_room", (roomId) => {
+    const username = socket.data.username;
+    socket.leave(roomId);
     if (roomId && roomUsers.has(roomId)) {
       roomUsers.get(roomId).delete(socket.id);
-      if (roomUsers.get(roomId).size === 0) roomUsers.delete(roomId);
-      else io.to(roomId).emit("room_users", { names: getRoomNames(roomId) });
+      if (roomUsers.get(roomId).size === 0) {
+        roomUsers.delete(roomId);
+        roomReactions.delete(roomId);
+      } else {
+        io.to(roomId).emit("room_users", { names: getRoomNames(roomId) });
+      }
     }
-
-    // clean up any stuck statuses
     if (roomId && username) {
       socket.to(roomId).emit("user_stop_typing",    { username });
       socket.to(roomId).emit("user_stop_recording", { username });
       socket.to(roomId).emit("user_stop_uploading", { username });
     }
+  });
 
+  // ── DISCONNECT ─────────────────────────────────────────────
+  socket.on("disconnect", () => {
+    const { roomId, username } = socket.data;
+    if (roomId && roomUsers.has(roomId)) {
+      roomUsers.get(roomId).delete(socket.id);
+      if (roomUsers.get(roomId).size === 0) {
+        roomUsers.delete(roomId);
+        roomReactions.delete(roomId);
+      } else {
+        io.to(roomId).emit("room_users", { names: getRoomNames(roomId) });
+      }
+    }
+    if (roomId && username) {
+      socket.to(roomId).emit("user_stop_typing",    { username });
+      socket.to(roomId).emit("user_stop_recording", { username });
+      socket.to(roomId).emit("user_stop_uploading", { username });
+    }
     console.log("disconnected:", socket.id);
   });
 });

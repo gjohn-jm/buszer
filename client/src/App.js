@@ -378,7 +378,6 @@ function App() {
 
   useEffect(() => { floatingMenuRef.current = floatingMenu; }, [floatingMenu]);
 
-  // ✅ Sync on every render — no stale closure ever
   const inRoomRef   = useRef(false);
   const roomIdRef   = useRef("");
   const usernameRef = useRef("");
@@ -481,7 +480,7 @@ function App() {
   const createRoom = () => {
     if (!username.trim()) { setError("Please enter a username first."); return; }
     const newRoom = Math.floor(10000 + Math.random() * 90000).toString();
-    roomIdRef.current = newRoom; // ✅ sync immediately
+    roomIdRef.current = newRoom;
     setRoomId(newRoom);
     doJoinRoom(newRoom, username);
     setInRoom(true);
@@ -801,14 +800,14 @@ function App() {
           />
         ))}
 
-        {/* ✅ Recipients see others' status */}
+        {/* Recipients see others' status */}
         <StatusIndicator
-          typingUsers={typingUsers}
-          recordingUsers={recordingUsers}
-          uploadingUsers={uploadingUsers}
+          typingUsers={typingUsers.filter((u) => u !== username)}
+          recordingUsers={recordingUsers.filter((u) => u !== username)}
+          uploadingUsers={uploadingUsers.filter((u) => u !== username)}
         />
 
-        {/* ✅ Sender sees own recording/uploading */}
+        {/* Sender sees own recording/uploading */}
         <OwnStatusRow
           isRecording={isRecording}
           isUploading={isUploading}
