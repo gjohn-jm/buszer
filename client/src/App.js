@@ -448,27 +448,57 @@ function App() {
     closeModal();
   };
 
-  const handleJoinConfirm = (pw) => {
-    const rid   = modal.roomId;
-    const uname = username.trim();
-    socket.emit("join_room", { roomId: rid, password: pw, username: uname }, (res) => {
-      if (!res.ok) { setModalError(res.error); return; }
-      enterRoom(rid, pw, res.creator, uname);
-    });
-  };
-
 const handleCreateConfirm = (pw) => {
   const uname = username.trim();
-  if (!socket.connected) {
-    setModalError("Not connected to server. Please refresh.");
-    return;
-  }
-  socket.emit("create_and_join", { password: pw, username: uname }, (res) => {
-    console.log("create_and_join response:", res);
-    if (!res.ok) { setModalError(res.error); return; }
-    enterRoom(res.roomId, pw, res.creator, uname);
+  console.log("socket connected:", socket.connected);
+
+  // Timeout to detect if server never responds
+  const timeout = setTimeout(() => {
+    console.error("SERVER NEVER RESPONDED — old server still running!");
+    setModalError("Server not updated yet. Please wait and retry.");
+  }, 5000);
+
+  socket.emit("create_and_join", { password: pw.trim(), username: uname }, (res) => {
+    clearTimeout(timeout);
+    console.log("=== SERVER RESPONSE ===", res);
+    if (!res || !res.ok) { setModalError(res?.error || "Failed."); return; }
+    passwordRef.current = pw.trim();
+    roomIdRef.current   = res.roomId;
+    usernameRef.current = uname;
+    setRoomId(res.roomId);
+    setRoomCreator(res.creator);
+    setInRoom(true);
+    setModal(null);
+    setModalError("");
   });
 };
+
+
+
+const handleJoinConfirm = (pw) => {
+  const rid   = modal.roomId;
+  const uname = username.trim();
+  if (!uname) { setModalError("No username set."); return; }
+  if (!pw.trim()) { setModalError("Password cannot be empty."); return; }
+
+  socket.emit("join_room", { roomId: rid, password: pw.trim(), username: uname }, (res) => {
+    if (!res || !res.ok) {
+      setModalError(res?.error || "Wrong password or room not found.");
+      return;
+    }
+    // Success — enter the room
+    passwordRef.current  = pw.trim();
+    roomIdRef.current    = rid;
+    usernameRef.current  = uname;
+    setRoomId(rid);
+    setRoomCreator(res.creator);
+    setInRoom(true);
+    setError("");
+    setModal(null);
+    setModalError("");
+  });
+};
+
 
 
 
