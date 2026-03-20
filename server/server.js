@@ -1,168 +1,132 @@
-const express    = require("express");
-const http       = require("http");
+const express = require("express");
+const http = require("http");
 const { Server } = require("socket.io");
-const cors       = require("cors");
+const cors = require("cors");
 
-const app    = express();
-const server = http.createServer(app);
-
+const app = express();
 app.use(cors());
 app.get("/ping", (_, res) => res.send("pong"));
 
+const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] },
 });
 
-// roomId → Map<socketId, username>
-const roomUsers = new Map();
+// rooms: { [roomId]: { password, creator, users: { [socketId]: username } } }
+const rooms = {};
 
-// roomId → { msgId → { emoji → Set<username> } }
-const roomReactions = new Map();
+function getRoomList() {
+  return Object.entries(rooms).map(([id, room]) => ({
+    id,
+    members: Object.values(room.users).length,
+  }));
+}
 
-function getRoomNames(roomId) {
-  const room = roomUsers.get(roomId);
-  if (!room) return [];
-  return [...room.values()];
+function getSocketRoom(socketId) {
+  for (const [roomId, room] of Object.entries(rooms)) {
+    if (room.users[socketId]) return { roomId, username: room.users[socketId] };
+  }
+  return { roomId: null, username: null };
+}
+
+function doLeave(socket, roomId) {
+  const room = rooms[roomId];
+  if (!room || !room.users[socket.id]) return;
+  const username = room.users[socket.id];
+  delete room.users[socket.id];
+  socket.leave(roomId);
+  if (Object.keys(room.users).length === 0) {
+    delete rooms[roomId];
+  } else {
+    if (room.creator === username) {
+      room.creator = Object.values(room.users)[0];
+    }
+    io.to(roomId).emit("room_users", {
+      names: Object.values(room.users),
+      creator: room.creator,
+    });
+    io.to(roomId).emit("receive_message", {
+      id: `sys-${Date.now()}`,
+      type: "system",
+      text: `${username} left the room`,
+    });
+  }
+  io.emit("active_rooms_update", getRoomList());
 }
 
 io.on("connection", (socket) => {
-  console.log("connected:", socket.id);
 
-  // ── JOIN ROOM ──────────────────────────────────────────────
-  socket.on("join_room", (roomId, callback) => {
-    socket.join(roomId);
-    socket.data.roomId = roomId;
-    if (!roomUsers.has(roomId)) roomUsers.set(roomId, new Map());
-    if (typeof callback === "function") callback();
-  });
+  socket.on("get_active_rooms", (cb) => cb(getRoomList()));
 
-  // ── CHECK ROOM ─────────────────────────────────────────────
-  socket.on("check_room", (roomId, callback) => {
-    const exists = roomUsers.has(roomId) && roomUsers.get(roomId).size > 0;
-    if (typeof callback === "function") callback(exists);
-  });
+  socket.on("check_room", (roomId, cb) => cb(!!rooms[roomId]));
 
-  // ── SET USERNAME ───────────────────────────────────────────
-  socket.on("set_username", ({ roomId, username }) => {
-    socket.data.username = username;
-    socket.data.roomId   = roomId;
-    if (!roomUsers.has(roomId)) roomUsers.set(roomId, new Map());
-    roomUsers.get(roomId).set(socket.id, username);
-    socket.to(roomId).emit("user_joined", { username });
-    io.to(roomId).emit("room_users", { names: getRoomNames(roomId) });
-  });
+  // CREATE + JOIN in one shot
+socket.on("create_and_join", ({ password, username }, cb) => {
+  const roomId = Math.floor(10000 + Math.random() * 90000).toString();
+  rooms[roomId] = { password, creator: username, users: {} };
 
-  // ── SEND MESSAGE ───────────────────────────────────────────
-  socket.on("send_message", (data) => {
-    const roomId = socket.data.roomId;
-    if (!roomId) return;
-    // Broadcast to others only (sender already adds locally)
-    socket.to(roomId).emit("receive_message", data);
-  });
-
-  // ── TYPING ─────────────────────────────────────────────────
-  socket.on("typing_start", () => {
-    const { roomId, username } = socket.data;
-    if (!roomId || !username) return;
-    socket.to(roomId).emit("user_typing", { username });
-  });
-
-  socket.on("typing_stop", () => {
-    const { roomId, username } = socket.data;
-    if (!roomId || !username) return;
-    socket.to(roomId).emit("user_stop_typing", { username });
-  });
-
-  // ── RECORDING ──────────────────────────────────────────────
-  socket.on("recording_start", () => {
-    const { roomId, username } = socket.data;
-    if (!roomId || !username) return;
-    socket.to(roomId).emit("user_recording", { username });
-  });
-
-  socket.on("recording_stop", () => {
-    const { roomId, username } = socket.data;
-    if (!roomId || !username) return;
-    socket.to(roomId).emit("user_stop_recording", { username });
-  });
-
-  // ── UPLOADING ──────────────────────────────────────────────
-  socket.on("uploading_start", () => {
-    const { roomId, username } = socket.data;
-    if (!roomId || !username) return;
-    socket.to(roomId).emit("user_uploading", { username });
-  });
-
-  socket.on("uploading_stop", () => {
-    const { roomId, username } = socket.data;
-    if (!roomId || !username) return;
-    socket.to(roomId).emit("user_stop_uploading", { username });
-  });
-
-  // ── REACTIONS (toggle-aware, multi-user) ───────────────────
-  socket.on("add_reaction", ({ msgId, emoji, username }) => {
-    const roomId = socket.data.roomId;
-    if (!roomId || !msgId || !emoji || !username) return;
-
-    if (!roomReactions.has(roomId)) roomReactions.set(roomId, {});
-    const roomData = roomReactions.get(roomId);
-    if (!roomData[msgId]) roomData[msgId] = {};
-    if (!roomData[msgId][emoji]) roomData[msgId][emoji] = new Set();
-
-    const users = roomData[msgId][emoji];
-    if (users.has(username)) users.delete(username);
-    else users.add(username);
-
-    // Serialize Sets → Arrays for socket emit
-    const serialized = {};
-    Object.entries(roomData[msgId]).forEach(([em, usersSet]) => {
-      const arr = [...usersSet];
-      if (arr.length > 0) serialized[em] = arr;
-    });
-
-    io.to(roomId).emit("reaction_update", { msgId, reactions: serialized });
-  });
-
-  // ── LEAVE ROOM ─────────────────────────────────────────────
-  socket.on("leave_room", (roomId) => {
-    const username = socket.data.username;
-    socket.leave(roomId);
-    if (roomId && roomUsers.has(roomId)) {
-      roomUsers.get(roomId).delete(socket.id);
-      if (roomUsers.get(roomId).size === 0) {
-        roomUsers.delete(roomId);
-        roomReactions.delete(roomId);
-      } else {
-        io.to(roomId).emit("room_users", { names: getRoomNames(roomId) });
-      }
-    }
-    if (roomId && username) {
-      socket.to(roomId).emit("user_stop_typing",    { username });
-      socket.to(roomId).emit("user_stop_recording", { username });
-      socket.to(roomId).emit("user_stop_uploading", { username });
-    }
-  });
-
-  // ── DISCONNECT ─────────────────────────────────────────────
-  socket.on("disconnect", () => {
-    const { roomId, username } = socket.data;
-    if (roomId && roomUsers.has(roomId)) {
-      roomUsers.get(roomId).delete(socket.id);
-      if (roomUsers.get(roomId).size === 0) {
-        roomUsers.delete(roomId);
-        roomReactions.delete(roomId);
-      } else {
-        io.to(roomId).emit("room_users", { names: getRoomNames(roomId) });
-      }
-    }
-    if (roomId && username) {
-      socket.to(roomId).emit("user_stop_typing",    { username });
-      socket.to(roomId).emit("user_stop_recording", { username });
-      socket.to(roomId).emit("user_stop_uploading", { username });
-    }
-    console.log("disconnected:", socket.id);
+  socket.join(roomId, () => {
+    rooms[roomId].users[socket.id] = username;
+    io.emit("active_rooms_update", getRoomList());
+    console.log(`Room created: ${roomId} by ${username}`);
+    cb({ ok: true, roomId, creator: username });
   });
 });
 
-const PORT = process.env.PORT || 4000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  // JOIN existing room
+socket.on("join_room", ({ roomId, password, username }, cb) => {
+  const room = rooms[roomId];
+  if (!room) return cb({ ok: false, error: "Room not found." });
+  if (room.password !== password) return cb({ ok: false, error: "Wrong password." });
+
+  socket.join(roomId, () => {
+    room.users[socket.id] = username;
+    io.to(roomId).emit("room_users", {
+      names: Object.values(room.users),
+      creator: room.creator,
+    });
+    socket.to(roomId).emit("user_joined", { username });
+    io.emit("active_rooms_update", getRoomList());
+    console.log(`${username} joined room ${roomId}`);
+    cb({ ok: true, creator: room.creator });
+  });
+});
+
+  // CHANGE PASSWORD (creator only)
+  socket.on("change_password", ({ roomId, newPassword }, cb) => {
+    const room = rooms[roomId];
+    if (!room) return cb({ ok: false, error: "Room not found." });
+    if (room.users[socket.id] !== room.creator)
+      return cb({ ok: false, error: "Only the creator can change the password." });
+    room.password = newPassword;
+    io.to(roomId).emit("receive_message", {
+      id: `sys-${Date.now()}`,
+      type: "system",
+      text: `🔒 Password changed by ${room.creator}`,
+    });
+    cb({ ok: true });
+  });
+
+  socket.on("leave_room",      (roomId) => doLeave(socket, roomId));
+  socket.on("send_message",    (data)   => socket.to(data.room).emit("receive_message", data));
+
+  socket.on("typing_start",        () => { const {roomId,username}=getSocketRoom(socket.id); if(roomId) socket.to(roomId).emit("user_typing",{username}); });
+  socket.on("typing_stop",         () => { const {roomId,username}=getSocketRoom(socket.id); if(roomId) socket.to(roomId).emit("user_stop_typing",{username}); });
+  socket.on("recording_start",     () => { const {roomId,username}=getSocketRoom(socket.id); if(roomId) socket.to(roomId).emit("user_recording",{username}); });
+  socket.on("recording_stop",      () => { const {roomId,username}=getSocketRoom(socket.id); if(roomId) socket.to(roomId).emit("user_stop_recording",{username}); });
+  socket.on("uploading_start",     () => { const {roomId,username}=getSocketRoom(socket.id); if(roomId) socket.to(roomId).emit("user_uploading",{username}); });
+  socket.on("uploading_stop",      () => { const {roomId,username}=getSocketRoom(socket.id); if(roomId) socket.to(roomId).emit("user_stop_uploading",{username}); });
+
+  socket.on("add_reaction", ({ msgId, emoji, username }) => {
+    const { roomId } = getSocketRoom(socket.id);
+    if (!roomId) return;
+    io.to(roomId).emit("reaction_update", { msgId, reactions: { [emoji]: [username] } });
+  });
+
+  socket.on("disconnect", () => {
+    Object.keys(rooms).forEach((rid) => doLeave(socket, rid));
+  });
+});
+
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, () => console.log(`Server on port ${PORT}`));
